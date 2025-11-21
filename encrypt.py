@@ -72,8 +72,8 @@ def rsa_enc(plain: bytes, key_size: int = 128) -> bytes:
 def str_xor(src, dst) -> str:
     ret = ''
     for i in range(len(src)):
-        i = i % len(dst)
-        ret += chr(ord(src[i]) ^ ord(dst[i]))
+        j = i % len(dst)
+        ret += chr(ord(src[i]) ^ ord(dst[j]))
 
     return ret
 

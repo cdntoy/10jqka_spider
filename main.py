@@ -224,7 +224,11 @@ def fetch(index: int, plate: str, max_retries: int = 20) -> None:
 def fetch_code(name: str, prefix: str) -> list[list[str]]:
     global session, RESULT, total_count, cur_count, failed_items, lock, cookies_obj, code_name
 
-    code = page_id.findall(RESULT[name][1])[0]
+    page_ids = page_id.findall(RESULT[name][1])
+    if not page_ids:
+        print(f'[警告] {name} 无法获取板块代码')
+        return []
+    code = page_ids[0]
     _result: list[list[str]] = []
     sub_count = 0
     url_prefix = ''
