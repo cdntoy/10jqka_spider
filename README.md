@@ -29,6 +29,18 @@ python3 main.py -u <用户名> -p <密码>
 | `-d` | 本地直连模式（仅测试用，强制单线程） | - |
 | `-v` | 显示版本号 | - |
 
+## 定时任务配置
+
+使用 crontab 配置每日自动运行（以 root 用户）：
+
+```bash
+# 编辑 root 用户的 crontab
+sudo crontab -e
+
+# 添加以下行（每天早上9点运行）
+0 9 * * * cd /path/to/10jqka_spider && python3 -u main.py -u ceshi0110 -p Qq830406 >> /var/log/10jqka_spider.log 2>&1
+```
+
 ## 输出
 
 ```
@@ -53,6 +65,8 @@ requests → CDN适配器 → 百度CDN(110.242.70.68) → 同花顺
 - 完整Chrome浏览器请求头伪装
 - 高斯分布随机延迟，模拟人工操作
 
+详细技术说明请参考 [TECHNICAL.md](TECHNICAL.md)
+
 ## 项目结构
 
 ```
@@ -61,6 +75,9 @@ requests → CDN适配器 → 百度CDN(110.242.70.68) → 同花顺
 ├── cookies.py       # 登录和Cookie管理
 ├── encrypt.py       # RSA/AES加密
 ├── cdn_adapter.py   # CDN转发适配器
+├── v_new.js         # 反爬虫Cookie生成
+├── origin.txt       # 设备指纹信息
+├── cookies.json     # 登录Cookie缓存
 ├── requirements.txt # 依赖包
 └── tests/           # 单元测试
 ```
