@@ -145,7 +145,7 @@ passwdSalt = RSA(
 ```
 主线程
    │
-   ├──▶ 线程池 (默认64线程)
+   ├──▶ 线程池 (默认16线程)
    │       ├── Thread-1: fetch_detail(板块A)
    │       ├── Thread-2: fetch_detail(板块B)
    │       ├── Thread-3: fetch_detail(板块C)

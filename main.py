@@ -459,7 +459,7 @@ if '__main__' == __name__:
     parser.add_argument('-u', '--user', type=str, default='', help='登录用户名', metavar='用户名')
     parser.add_argument('-p', '--password', type=str, default='', help='登录密码', metavar='密码')
     parser.add_argument('-b', '--interval', type=int, default=1, help='请求间隔秒数 (默认: 1)', metavar='秒')
-    parser.add_argument('-H', '--threads', type=int, default=64, help='并发线程数 (默认: 64)', metavar='数量')
+    parser.add_argument('-H', '--threads', type=int, default=16, help='并发线程数 (默认: 16)', metavar='数量')
     parser.add_argument('-t', '--timeout', type=int, default=10, help='请求超时秒数 (默认: 10)', metavar='秒')
     parser.add_argument('-d', '--direct', action='store_true', help='本地直连模式（仅限测试，强制单线程）')
     parser.add_argument('-v', '--version', action='version', version=f'%(prog)s v{VERSION}')
