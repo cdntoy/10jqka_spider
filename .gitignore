@@ -1,0 +1,12 @@
+__pycache__/
+result/
+data-*
+PID
+*.log
+venv/
+.claude/
+
+# 敏感文件
+cookies.json
+v_new.js
+origin.txt
