@@ -37,7 +37,7 @@ MySQL数据库操作：
 数据表：
 - `scrape_batches` - 批次记录
 - `board_snapshots` - 板块快照
-- `stock_snapshots` - 股票快照
+- `stock_board_memberships` - 股票-板块成员关系
 - `board_statistics` - 板块统计
 - `change_summary` - 变化汇总
 - `board_changes` - 板块变化

@@ -1,4 +1,4 @@
-# 同花顺板块数据爬虫 v1.7.6
+# 同花顺板块数据爬虫 v1.7.7
 
 自动爬取同花顺股票板块数据，支持同花顺行业、概念、地域三大分类，数据存储到MySQL或CSV文件。
 
@@ -78,7 +78,7 @@ result/20251123/
 
 - `scrape_batches` - 每次爬取的批次记录
 - `board_snapshots` - 板块历史快照
-- `stock_snapshots` - 股票历史快照
+- `stock_board_memberships` - 股票-板块成员关系表
 - `board_statistics` - 板块统计（含股票数量）
 - `change_summary` - 变化统计汇总
 - `board_changes` - 板块变化明细

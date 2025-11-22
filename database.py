@@ -38,7 +38,7 @@ class Database:
 
     def _connect(self):
         """建立数据库连接，数据库不存在时自动创建"""
-        db_name = self.config.get('database', 'stock_spider')
+        db_name = self.config.get('database', '10jqka_bankuai')
 
         try:
             # 尝试连接指定数据库
@@ -90,7 +90,7 @@ class Database:
         Returns:
             成功返回True，失败返回False
         """
-        db_name = self.config.get('database', 'stock_spider')
+        db_name = self.config.get('database', '10jqka_bankuai')
 
         try:
             # 连接MySQL服务器（不指定数据库）
@@ -165,8 +165,8 @@ class Database:
                 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='板块快照表'
             """,
 
-            'stock_snapshots': """
-                CREATE TABLE IF NOT EXISTS stock_snapshots (
+            'stock_board_memberships': """
+                CREATE TABLE IF NOT EXISTS stock_board_memberships (
                     id BIGINT AUTO_INCREMENT PRIMARY KEY COMMENT '自增ID',
                     batch_id INT NOT NULL COMMENT '关联的批次ID',
                     board_name VARCHAR(100) NOT NULL COMMENT '所属板块名称',
@@ -180,7 +180,7 @@ class Database:
                     INDEX idx_board_name (board_name),
                     INDEX idx_scrape_date (scrape_date),
                     INDEX idx_batch_stock (batch_id, stock_code)
-                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='股票快照表'
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='股票-板块成员关系表'
             """,
 
             'change_summary': """
@@ -252,7 +252,7 @@ class Database:
         }
 
         # 按顺序创建表（确保外键依赖正确）
-        table_order = ['scrape_batches', 'board_snapshots', 'stock_snapshots',
+        table_order = ['scrape_batches', 'board_snapshots', 'stock_board_memberships',
                       'change_summary', 'board_changes', 'stock_changes', 'board_statistics']
 
         for table_name in table_order:
@@ -448,7 +448,7 @@ class Database:
         try:
             with self.connection.cursor() as cursor:
                 sql = """
-                    INSERT INTO stock_snapshots
+                    INSERT INTO stock_board_memberships
                     (batch_id, board_name, stock_code, stock_name, sequence_num, scrape_date)
                     VALUES (%s, %s, %s, %s, %s, %s)
                 """
@@ -637,7 +637,7 @@ class Database:
     def _get_stock_set(self, batch_id: int) -> Set[Tuple[str, str]]:
         """获取批次的股票集合 (board_name, stock_code)"""
         with self.connection.cursor() as cursor:
-            sql = "SELECT board_name, stock_code FROM stock_snapshots WHERE batch_id = %s"
+            sql = "SELECT board_name, stock_code FROM stock_board_memberships WHERE batch_id = %s"
             cursor.execute(sql, (batch_id,))
             return {(row['board_name'], row['stock_code']) for row in cursor.fetchall()}
 
@@ -691,7 +691,7 @@ class Database:
         """从最近的快照中获取股票名称"""
         with self.connection.cursor() as cursor:
             sql = """
-                SELECT stock_name FROM stock_snapshots
+                SELECT stock_name FROM stock_board_memberships
                 WHERE board_name = %s AND stock_code = %s
                 ORDER BY batch_id DESC LIMIT 1
             """
@@ -712,6 +712,76 @@ class Database:
         print(f"股票变化: 新增 {stocks_added} 只, 减少 {stocks_removed} 只")
         print(f"总体变化率: {change_rate:.2f}%")
         print("="*60 + "\n")
+
+    def validate_batch_integrity(self, batch_id: int, board_type: str) -> Tuple[bool, str]:
+        """
+        验证批次数据完整性
+
+        检查项：
+        1. 板块-股票一致性：确保每个板块都有股票数据
+        2. 最低记录数检查：验证板块数量合理（可选）
+
+        Args:
+            batch_id: 批次ID
+            board_type: 板块类型 (thshy/gn/dy)
+
+        Returns:
+            (is_valid, error_message): 验证结果和错误信息
+        """
+        try:
+            with self.connection.cursor() as cursor:
+                # 检查1：查找没有股票数据的板块
+                sql_orphan_boards = """
+                    SELECT b.board_name
+                    FROM board_snapshots b
+                    LEFT JOIN stock_board_memberships s
+                        ON s.batch_id = b.batch_id AND s.board_name = b.board_name
+                    WHERE b.batch_id = %s
+                    GROUP BY b.board_name
+                    HAVING COUNT(s.id) = 0
+                """
+                cursor.execute(sql_orphan_boards, (batch_id,))
+                orphan_boards = cursor.fetchall()
+
+                if orphan_boards:
+                    board_names = [b['board_name'] for b in orphan_boards]
+                    error_msg = f"发现 {len(orphan_boards)} 个板块没有股票数据: {', '.join(board_names[:5])}"
+                    if len(orphan_boards) > 5:
+                        error_msg += f" 等（共{len(orphan_boards)}个）"
+                    logger.error(f"✗ 数据完整性校验失败: {error_msg}")
+                    return (False, error_msg)
+
+                # 检查2：验证板块数量是否合理（可选，基于历史经验值）
+                sql_board_count = """
+                    SELECT COUNT(DISTINCT board_name) as board_count
+                    FROM board_snapshots
+                    WHERE batch_id = %s
+                """
+                cursor.execute(sql_board_count, (batch_id,))
+                result = cursor.fetchone()
+                board_count = result['board_count'] if result else 0
+
+                # 最低板块数量要求（基于实际情况调整）
+                min_boards = {
+                    'thshy': 80,   # 同花顺行业通常90个左右
+                    'gn': 350,      # 概念通常380个左右
+                    'dy': 28        # 地域通常31个左右
+                }
+
+                expected_min = min_boards.get(board_type, 0)
+                if expected_min > 0 and board_count < expected_min:
+                    error_msg = f"板块数量过少: 实际{board_count}个，期望至少{expected_min}个（{board_type}）"
+                    logger.warning(f"⚠ 数据完整性警告: {error_msg}")
+                    # 这里只警告，不强制失败，因为板块数量可能会变化
+                    # return (False, error_msg)
+
+                logger.info(f"✓ 批次 #{batch_id} 数据完整性校验通过（{board_count}个板块）")
+                return (True, None)
+
+        except Exception as e:
+            error_msg = f"数据完整性校验异常: {e}"
+            logger.error(error_msg)
+            return (False, error_msg)
 
     def delete_batch_data(self, batch_id: int):
         """

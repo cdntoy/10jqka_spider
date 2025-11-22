@@ -7,10 +7,9 @@ from time import sleep
 from json import loads, dumps
 from cookies import _10jqka_Cookies, PATH, path_join, mkdir, exists, getpid
 from datetime import datetime
-from sqlite3 import connect
 from csv import writer as csv_writer
 from threading import Thread, Lock, Event, Semaphore
-from random import randint, gauss, uniform
+from random import gauss
 import signal
 import sys
 import toml
@@ -55,7 +54,7 @@ signal.signal(signal.SIGINT, signal_handler)
 signal.signal(signal.SIGTERM, signal_handler)
 
 # 常量定义
-VERSION = '1.7.6'
+VERSION = '1.7.7'
 MAX_PAGE_RETRIES = 20  # 页面获取最大重试次数
 MAX_CODE_RETRIES = 10  # 股票代码获取最大重试次数
 MAX_LOGIN_ATTEMPTS = 6  # 登录最大尝试次数
@@ -63,6 +62,13 @@ MAX_ACCESS_DENIED_RETRIES = 16  # 访问拒绝最大重试次数
 DEFAULT_INTERVAL = 1  # 默认请求间隔（秒）
 DEFAULT_THREAD_COUNT = 16  # 默认线程数
 DEFAULT_TIMEOUT = 10  # 默认超时时间（秒）
+
+# 板块类型中文名称映射
+BOARD_TYPE_NAMES = {
+    'thshy': '同花顺行业',
+    'gn': '概念',
+    'dy': '地域'
+}
 
 # 全局变量
 total_count = 0
@@ -231,13 +237,21 @@ def save_to_mysql(boards: list[dict], stocks: list[dict], board_type: str) -> No
             # 插入板块统计数据（每个板块的股票数量）
             db_instance.insert_board_statistics(current_batch_id, board_type, stocks, scrape_date)
 
-            # 更新批次状态
-            db_instance.update_batch_status(
-                current_batch_id,
-                'success',
-                total_boards=len(boards),
-                total_stocks=len(stocks)
-            )
+        # 数据完整性校验（在事务提交后进行）
+        is_valid, error_msg = db_instance.validate_batch_integrity(current_batch_id, board_type)
+        if not is_valid:
+            log(f'✗ 数据完整性校验失败: {error_msg}', 'ERROR')
+            db_instance.update_batch_status(current_batch_id, 'failed', error_message=error_msg)
+            db_instance.delete_batch_data(current_batch_id)
+            raise ValueError(f"数据完整性校验失败: {error_msg}")
+
+        # 校验通过，标记为成功
+        db_instance.update_batch_status(
+            current_batch_id,
+            'success',
+            total_boards=len(boards),
+            total_stocks=len(stocks)
+        )
 
         # 生成变化统计
         db_instance.generate_change_summary(current_batch_id, board_type)
@@ -683,16 +697,10 @@ def fetch_pages(plate: str, url: str, config: dict) -> None:
     """
     global board_data, session, page_info, cookies_obj, total_count, cur_count
 
-    name = ''
-    match plate:
-        case 'gn':
-            name = '概念'
-        case 'thshy':
-            name = '同花顺行业'
-        case 'dy':
-            name = '地域'
-        case _:
-            raise ValueError(f"Unknown plate type: {plate}")
+    # 使用板块类型名称映射
+    name = BOARD_TYPE_NAMES.get(plate)
+    if not name:
+        raise ValueError(f"Unknown plate type: {plate}")
 
     board_data = dict()
     end_page = 1
@@ -884,7 +892,7 @@ if '__main__' == __name__:
         if storage_mode == 'mysql' and db_instance:
             current_batch_id = db_instance.create_batch('thshy')
 
-        log('开始爬取: 同花顺行业')
+        log(f'开始爬取: {BOARD_TYPE_NAMES["thshy"]}板块')
         fetch_pages(
             'thshy',
             'https://q.10jqka.com.cn/thshy/index/field/199112/order/desc/page/1/ajax/1/',
@@ -896,7 +904,7 @@ if '__main__' == __name__:
         if storage_mode == 'mysql' and db_instance:
             current_batch_id = db_instance.create_batch('gn')
 
-        log('开始爬取: 概念板块')
+        log(f'开始爬取: {BOARD_TYPE_NAMES["gn"]}板块')
         fetch_pages(
             'gn',
             'https://q.10jqka.com.cn/gn/index/field/addtime/order/desc/page/30/ajax/1/',
@@ -908,7 +916,7 @@ if '__main__' == __name__:
         if storage_mode == 'mysql' and db_instance:
             current_batch_id = db_instance.create_batch('dy')
 
-        log('开始爬取: 地域板块')
+        log(f'开始爬取: {BOARD_TYPE_NAMES["dy"]}板块')
         fetch_pages(
             'dy',
             'https://q.10jqka.com.cn/dy/index/field/199112/order/desc/page/1/ajax/1/',

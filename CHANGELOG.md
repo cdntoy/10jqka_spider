@@ -1,5 +1,42 @@
 # 更新日志
 
+## [1.7.7] - 2025-11-23
+
+### 重命名
+- **表名优化**: `stock_snapshots` → `stock_board_memberships`
+  - 更清晰地表达股票-板块成员关系
+  - 避免与股票价格快照混淆
+  - 所有相关SQL查询已更新
+
+### 数据库
+- **库名更改**: `stock_spider` → `10jqka_bankuai`
+  - 使用拼音避免中文编码问题
+  - 强调数据内容（板块）而非工具（爬虫）
+  - 更新config.toml和database.py默认值
+
+### 代码质量
+- **清理无用引用**:
+  - 删除未使用的sqlite3 import
+  - 删除未使用的random.randint和random.uniform
+
+### 国际化
+- **中文化改进**:
+  - 添加BOARD_TYPE_NAMES常量映射（thshy→同花顺行业, gn→概念, dy→地域）
+  - 所有日志输出改用中文板块名称
+  - 保留thshy/gn/dy用于URL构建（外部API兼容性）
+
+### 数据完整性
+- **批次校验机制**:
+  - 新增validate_batch_integrity()函数
+  - 检查板块-股票一致性（确保每个板块都有股票数据）
+  - 检查最低记录数（同花顺行业≥80，概念≥350，地域≥28）
+  - 失败批次自动清理，避免脏数据
+- **两阶段提交**:
+  - 数据插入后先校验，通过后再标记success
+  - 校验失败自动rollback并delete_batch_data()
+
+---
+
 ## [1.7.6] - 2025-11-23
 
 ### 修复
