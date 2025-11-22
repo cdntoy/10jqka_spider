@@ -55,7 +55,7 @@ signal.signal(signal.SIGINT, signal_handler)
 signal.signal(signal.SIGTERM, signal_handler)
 
 # 常量定义
-VERSION = '1.7.4'
+VERSION = '1.7.5'
 MAX_PAGE_RETRIES = 20  # 页面获取最大重试次数
 MAX_CODE_RETRIES = 10  # 股票代码获取最大重试次数
 MAX_LOGIN_ATTEMPTS = 6  # 登录最大尝试次数
@@ -85,18 +85,32 @@ def log(msg: str, level: str = 'INFO') -> None:
     timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
     print(f'[{timestamp}] [{level}] {msg}')
 
-def random_sleep(base: float = None) -> None:
+def random_sleep(base: float = None) -> bool:
     """
     随机延迟，使用高斯分布模拟人工操作
 
+    支持响应shutdown_event，可被Ctrl+C中断
+
     Args:
         base: 基础延迟时间（秒），默认使用全局interval值
+
+    Returns:
+        bool: True表示正常完成，False表示被shutdown_event中断
     """
     if base is None:
         base = interval
     # 高斯分布: 均值=base, 标准差=base*0.3
     delay = max(0.1, gauss(base, base * 0.3))
-    sleep(delay)
+
+    # 分段sleep，每0.05秒检查一次shutdown_event
+    elapsed = 0.0
+    step = 0.05
+    while elapsed < delay:
+        if shutdown_event.is_set():
+            return False
+        sleep(min(step, delay - elapsed))
+        elapsed += step
+    return True
 
 tbody_pattern = compile(r'<tbody>([\w\W]+?)</tbody>')
 tr_pattern = compile(r'<tr>([\w\W]+?)</tr>')
@@ -338,13 +352,16 @@ def fetch(index: int, plate: str, max_retries: int = MAX_PAGE_RETRIES) -> None:
             if len(data) == 1:
                 break
             else:
-                random_sleep()
+                if not random_sleep():
+                    return
         except (ConnectionError, TimeoutError) as e:
             print(f'\x1b[2K\r\x1b[91mNetwork error (retry {retry+1}/{max_retries}): {e}\x1b[0m')
-            random_sleep()
+            if not random_sleep():
+                return
         except Exception as e:
             print(f'\x1b[2K\r\x1b[91mUnexpected error (retry {retry+1}/{max_retries}): {e}\x1b[0m')
-            random_sleep()
+            if not random_sleep():
+                return
     else:
         print(f'\x1b[2K\r\x1b[91mFetch page {index} failed after {max_retries} retries\x1b[0m')
         return
@@ -443,7 +460,8 @@ def fetch_code(name: str, prefix: str) -> list[list[str]]:
         pages = int(data[0])
 
     for page in range(1, pages + 1):
-        random_sleep()
+        if not random_sleep():
+            return []
         sub_count += 1
 
         print(
@@ -467,7 +485,8 @@ def fetch_code(name: str, prefix: str) -> list[list[str]]:
                 check_cookies_valid()
 
             if resp.status_code == 401 or resp.status_code == 403:
-                random_sleep()
+                if not random_sleep():
+                    return []
                 continue
             else:
                 break
@@ -525,7 +544,8 @@ def fetch_detail(name: str, prefix: str, max_retries: int = MAX_CODE_RETRIES) ->
                 if name not in failed_items:
                     failed_items.append(name)
             print(f'\x1b[2K\r\x1b[91m{name} retry {attempt + 1}/{max_retries}: {e}\x1b[0m')
-            random_sleep(interval * 2)  # 失败后等待更久
+            if not random_sleep(interval * 2):  # 失败后等待更久
+                return
         finally:
             if connection_semaphore:
                 connection_semaphore.release()
@@ -577,7 +597,8 @@ def check_cookies_valid() -> None:
             break
         elif resp.status_code > 400:
             count += 1
-            sleep(2)
+            if not random_sleep(2):
+                return
             # 获取新IP并显示
             try:
                 ip_resp = session.get('https://4.ipw.cn', timeout=10)
@@ -620,7 +641,11 @@ def start_thread(Fn, args, plate) -> None:
 
         for j in range(len(started_threads)):
             thread = started_threads.pop()
-            thread.join()
+            # 使用timeout join，每0.1秒检查一次shutdown_event
+            while thread.is_alive():
+                thread.join(timeout=0.1)
+                if shutdown_event.is_set():
+                    return
 
     for i in range(len(threads)):
         thread = threads.pop()
@@ -628,7 +653,11 @@ def start_thread(Fn, args, plate) -> None:
         started_threads.append(thread)
 
     for i in started_threads:
-        i.join()
+        # 使用timeout join，每0.1秒检查一次shutdown_event
+        while i.is_alive():
+            i.join(timeout=0.1)
+            if shutdown_event.is_set():
+                return
 
 def fetch_pages(plate: str, url: str, config: dict) -> None:
     """

@@ -1,5 +1,21 @@
 # 更新日志
 
+## [1.7.5] - 2025-11-23
+
+### 修复
+- **P0级问题**: 修复Ctrl+C信号无法立即响应的问题
+  - thread.join()添加超时检查，每0.1秒检查shutdown_event
+  - random_sleep()改为分段sleep，每0.05秒检查shutdown_event
+  - 所有阻塞操作支持快速响应中断信号
+
+### 项目精简
+- 删除非核心文件：query_changes.py, MYSQL_GUIDE.md, TECHNICAL.md, tests/
+- 更新README.md：移除已删除文件引用，改为SQL查询示例
+- 更新FILE_STRUCTURE.md：保持文档与实际文件一致
+- 聚焦核心功能：登录 → 爬取 → 去重 → MySQL/CSV
+
+---
+
 ## [1.7.4] - 2025-11-23
 
 ### 数据质量改进
