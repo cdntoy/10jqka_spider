@@ -1,5 +1,26 @@
 # 更新日志
 
+## [1.7.2] - 2025-11-22
+
+### 修复
+- **Socket代理**: 修复socket/thread_socket.c中的3个buffer overflow bug
+  - LEN_URL_STR从262143改为1023
+  - snprintf使用正确的缓冲区大小（LEN_URL而非SIZE）
+  - snprintf偏移指针使用正确的剩余长度（LEN_URL - len）
+- **Socket代理**: 编译时禁用stack protector以绕过runtime检测
+
+### 删除
+- **CDN适配器**: 移除cdn_adapter.py（百度CDN IP段已被封禁）
+- 移除main.py中对cdn_adapter的引用
+- 默认模式改为强制使用-s或-d参数
+
+### 测试
+- ✅ Socket代理模式完整测试通过（出口IP: 180.101.81.x）
+- ✅ 成功爬取29+板块数据
+- ✅ Ctrl+C信号处理正常工作
+
+---
+
 ## [1.7.1] - 2025-11-22
 
 ### 修复

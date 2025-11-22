@@ -41,7 +41,7 @@ interval = 1  # 默认请求间隔1秒
 user = b''
 pwd = b''
 thread_count = 16  # 默认16线程
-VERSION = '1.7.1'
+VERSION = '1.7.2'
 timeout = 10  # 默认超时10秒
 
 def log(msg: str, level: str = 'INFO') -> None:
@@ -520,24 +520,25 @@ if '__main__' == __name__:
     elif args.direct:
         # 测试模式：本地直连
         log('⚠️  本地直连模式（仅限测试）', 'WARN')
-        log('⚠️  生产环境必须使用CDN代理', 'WARN')
+        log('⚠️  生产环境推荐使用Socket代理模式（-s）', 'WARN')
     else:
-        # 默认模式：通过百度CDN代理轮换IP
-        from cdn_adapter import CdnAdapter, CDN_SERVER
-        adapter = CdnAdapter(
-            pool_connections=64,
-            pool_maxsize=64
-        )
-        session.mount('https://', adapter)
-        log(f'CDN转发: {CDN_SERVER}')
-
-    # 测试CDN是否可用
-    try:
-        ip = session.get(url='https://4.ipw.cn', timeout=10).text
-        log(f'出口IP: {ip.strip()}')
-    except Exception as e:
-        log(f'CDN连接失败: {e}', 'ERROR')
+        # CDN代理模式已被弃用（百度CDN IP段已被封禁）
+        log('⚠️  CDN代理模式已被弃用（IP段已被封禁）', 'ERROR')
+        log('⚠️  请使用 -s (Socket代理) 或 -d (本地直连) 模式', 'ERROR')
         sys.exit(1)
+
+    # 测试网络连接
+    if not args.direct:
+        # CDN模式和Socket模式需要测试出口IP
+        try:
+            ip = session.get(url='https://4.ipw.cn', timeout=10).text
+            log(f'出口IP: {ip.strip()}')
+        except Exception as e:
+            log(f'网络连接测试失败: {e}', 'WARN')
+            # Socket模式下连接失败不退出，可能是代理配置问题
+            if not args.socket:
+                log('CDN连接失败', 'ERROR')
+                sys.exit(1)
 
     try:
         cookies_obj = _10jqka_Cookies(session, user, pwd)
