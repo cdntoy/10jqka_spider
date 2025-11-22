@@ -61,7 +61,7 @@ signal.signal(signal.SIGINT, signal_handler)
 signal.signal(signal.SIGTERM, signal_handler)
 
 # 常量定义
-VERSION = '2.0.0'
+VERSION = '2.0.1'
 MAX_PAGE_RETRIES = 20
 MAX_CODE_RETRIES = 10
 MAX_LOGIN_ATTEMPTS = 6
@@ -69,6 +69,13 @@ MAX_ACCESS_DENIED_RETRIES = 16
 DEFAULT_INTERVAL = 1
 DEFAULT_THREAD_COUNT = 16
 DEFAULT_TIMEOUT = 10
+
+# 板块编号映射
+BOARD_NUMBER_MAP = {
+    1: '同花顺行业',
+    2: '概念',
+    3: '地域'
+}
 
 # 全局变量
 total_count = 0
@@ -713,18 +720,23 @@ if '__main__' == __name__:
     parser = argparse.ArgumentParser(
         description=f'同花顺板块数据爬虫 v{VERSION}',
         formatter_class=argparse.RawDescriptionHelpFormatter,
-        epilog='''使用示例:
+        epilog='''板块类型编号:
+  1 = 同花顺行业板块
+  2 = 概念板块
+  3 = 地域板块
+
+使用示例:
   抓取全部板块:
     python3 main.py -u 用户名 -p 密码 -s
 
   只抓取概念板块:
-    python3 main.py -u 用户名 -p 密码 -s --boards 概念
+    python3 main.py -u 用户名 -p 密码 -s -B 2
 
   只抓取行业板块:
-    python3 main.py -u 用户名 -p 密码 -s --boards 同花顺行业
+    python3 main.py -u 用户名 -p 密码 -s -B 1
 
-  抓取多个板块:
-    python3 main.py -u 用户名 -p 密码 -s --boards 概念 地域
+  抓取多个板块（概念+地域）:
+    python3 main.py -u 用户名 -p 密码 -s -B 2 3
 
 配置文件: config.toml
 '''
@@ -732,15 +744,15 @@ if '__main__' == __name__:
     parser.add_argument('-u', '--user', type=str, default='', help='登录用户名', metavar='用户名')
     parser.add_argument('-p', '--password', type=str, default='', help='登录密码', metavar='密码')
     parser.add_argument('-b', '--interval', type=int, help='请求间隔秒数（覆盖配置文件）', metavar='秒')
+    parser.add_argument('-B', '--boards', type=int, nargs='+',
+                        choices=[1, 2, 3],
+                        help='指定板块: 1=同花顺行业 2=概念 3=地域（可多选）', metavar='板块')
     parser.add_argument('-H', '--threads', type=int, help='并发线程数（覆盖配置文件）', metavar='数量')
     parser.add_argument('-t', '--timeout', type=int, help='请求超时秒数（覆盖配置文件）', metavar='秒')
     parser.add_argument('-s', '--socket', action='store_true', help='Socket代理模式（覆盖配置文件）')
     parser.add_argument('-P', '--proxy-port', type=int, help='Socket代理端口（覆盖配置文件）', metavar='端口')
     parser.add_argument('-d', '--direct', action='store_true', help='本地直连模式（仅限测试，不使用代理）')
     parser.add_argument('-c', '--config', type=str, default='config.toml', help='配置文件路径', metavar='路径')
-    parser.add_argument('--boards', type=str, nargs='+',
-                        choices=['同花顺行业', '概念', '地域'],
-                        help='指定要抓取的板块类型（可多选，覆盖配置文件）', metavar='板块')
     parser.add_argument('-v', '--version', action='version', version=f'%(prog)s v{VERSION}')
 
     args = parser.parse_args()
@@ -806,8 +818,11 @@ if '__main__' == __name__:
     if args.proxy_port is not None:
         config['socket_proxy']['port'] = args.proxy_port
     if args.boards is not None:
-        config['scraper']['enabled_boards'] = args.boards
-        log(f'命令行指定板块: {", ".join(args.boards)}')
+        # 将数字转换为板块名称
+        board_names = [BOARD_NUMBER_MAP[num] for num in args.boards]
+        config['scraper']['enabled_boards'] = board_names
+        board_list = ', '.join([f'{num}={BOARD_NUMBER_MAP[num]}' for num in args.boards])
+        log(f'命令行指定板块: {board_list}')
 
     # 参数范围验证
     if config['scraper']['interval_seconds'] < 0:
@@ -830,6 +845,18 @@ if '__main__' == __name__:
 
     log(f'同花顺板块爬虫 v{VERSION}')
     log(f'线程数: {thread_count}, 间隔: {interval}s, 超时: {timeout}s')
+
+    # 显示板块类型映射
+    enabled_boards = config['scraper']['enabled_boards']
+    log('━' * 50)
+    log('板块类型说明:')
+    log('  1 = 同花顺行业板块')
+    log('  2 = 概念板块')
+    log('  3 = 地域板块')
+    log('━' * 50)
+    board_display = ', '.join(enabled_boards)
+    log(f'本次抓取板块: {board_display}')
+    log('━' * 50)
 
     # 初始化Socket代理管理器
     if config['socket_proxy']['enabled']:
