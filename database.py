@@ -230,12 +230,30 @@ class Database:
                     INDEX idx_stock_code (stock_code),
                     INDEX idx_change_type (change_type)
                 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='股票变化明细表'
+            """,
+
+            'board_statistics': """
+                CREATE TABLE IF NOT EXISTS board_statistics (
+                    id BIGINT AUTO_INCREMENT PRIMARY KEY COMMENT '统计ID',
+                    batch_id INT NOT NULL COMMENT '关联的批次ID',
+                    board_type ENUM('thshy', 'gn', 'dy') NOT NULL COMMENT '板块类型: thshy=同花顺行业, gn=概念, dy=地域',
+                    board_name VARCHAR(100) NOT NULL COMMENT '板块名称',
+                    stock_count INT NOT NULL DEFAULT 0 COMMENT '该板块下的股票数量（去重后）',
+                    scrape_date DATE NOT NULL COMMENT '抓取日期',
+                    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+                    FOREIGN KEY (batch_id) REFERENCES scrape_batches(batch_id) ON DELETE CASCADE,
+                    INDEX idx_batch_id (batch_id),
+                    INDEX idx_board_type (board_type),
+                    INDEX idx_board_name (board_name),
+                    INDEX idx_scrape_date (scrape_date),
+                    UNIQUE KEY uk_batch_board (batch_id, board_name)
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='板块统计表：记录每个板块的股票数量等统计信息'
             """
         }
 
         # 按顺序创建表（确保外键依赖正确）
         table_order = ['scrape_batches', 'board_snapshots', 'stock_snapshots',
-                      'change_summary', 'board_changes', 'stock_changes']
+                      'change_summary', 'board_changes', 'stock_changes', 'board_statistics']
 
         for table_name in table_order:
             logger.info(f"  创建表: {table_name}")
@@ -447,6 +465,51 @@ class Database:
                 logger.info(f"✓ 插入 {len(stocks)} 条股票数据")
         except Exception as e:
             logger.error(f"插入股票数据失败: {e}")
+            raise
+
+    def insert_board_statistics(self, batch_id: int, board_type: str, stocks: List[Dict], scrape_date: str):
+        """
+        计算并插入板块统计数据
+
+        统计每个板块下的股票数量（去重后的实际数量）
+
+        Args:
+            batch_id: 批次ID
+            board_type: 板块类型（thshy/gn/dy）
+            stocks: 股票数据列表 [{board_name, stock_code, ...}, ...]
+            scrape_date: 抓取日期
+        """
+        if not stocks:
+            return
+
+        try:
+            # 按板块统计股票数量
+            board_stock_counts = {}
+            for stock in stocks:
+                board_name = stock['board_name']
+                if board_name not in board_stock_counts:
+                    board_stock_counts[board_name] = set()
+                board_stock_counts[board_name].add(stock['stock_code'])
+
+            # 准备插入数据
+            with self.connection.cursor() as cursor:
+                sql = """
+                    INSERT INTO board_statistics
+                    (batch_id, board_type, board_name, stock_count, scrape_date, created_at)
+                    VALUES (%s, %s, %s, %s, %s, NOW())
+                """
+                values = [
+                    (batch_id, board_type, board_name, len(codes), scrape_date)
+                    for board_name, codes in board_stock_counts.items()
+                ]
+                cursor.executemany(sql, values)
+
+                if not self._in_transaction:
+                    self.connection.commit()
+
+                logger.info(f"✓ 插入 {len(board_stock_counts)} 条板块统计数据")
+        except Exception as e:
+            logger.error(f"插入板块统计数据失败: {e}")
             raise
 
     def get_previous_successful_batch(self, board_type: str, current_batch_id: int) -> Optional[Dict]:

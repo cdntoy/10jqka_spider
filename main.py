@@ -55,7 +55,7 @@ signal.signal(signal.SIGINT, signal_handler)
 signal.signal(signal.SIGTERM, signal_handler)
 
 # 常量定义
-VERSION = '1.7.3'
+VERSION = '1.7.4'
 MAX_PAGE_RETRIES = 20  # 页面获取最大重试次数
 MAX_CODE_RETRIES = 10  # 股票代码获取最大重试次数
 MAX_LOGIN_ATTEMPTS = 6  # 登录最大尝试次数
@@ -126,7 +126,12 @@ with open(path_join(PATH, 'cookies.json'), 'r') as f:
 
 def prepare_board_data() -> tuple[list[dict], list[dict]]:
     """
-    从全局board_data准备板块和股票数据
+    从全局board_data准备板块和股票数据,并进行去重处理
+
+    数据清洗规则:
+    1. 板块名称去重(同名板块只保留第一个)
+    2. 每个板块内的股票代码去重(同一板块内相同代码只保留第一个)
+    3. 过滤无效数据(缺少必要字段的记录)
 
     Returns:
         (boards, stocks) 元组
@@ -137,7 +142,14 @@ def prepare_board_data() -> tuple[list[dict], list[dict]]:
 
     boards = []
     stocks = []
+    seen_boards = set()  # 用于板块去重
+
     for key, value in board_data.items():
+        # 板块去重: 跳过重复的板块名称
+        if key in seen_boards:
+            continue
+        seen_boards.add(key)
+
         board = {
             'board_name': key,
             'source_url': value[1] if len(value) > 1 else None,
@@ -146,13 +158,21 @@ def prepare_board_data() -> tuple[list[dict], list[dict]]:
         }
         boards.append(board)
 
-        # 股票数据
+        # 股票数据去重: 同一板块内相同股票代码只保留第一条
         if len(value) > 4:
+            seen_stocks = set()  # 用于当前板块内股票代码去重
             for stock in value[4]:
+                stock_code = stock[1]
+
+                # 跳过重复的股票代码
+                if stock_code in seen_stocks:
+                    continue
+                seen_stocks.add(stock_code)
+
                 stocks.append({
                     'board_name': key,
                     'sequence_num': stock[0],
-                    'stock_code': stock[1],
+                    'stock_code': stock_code,
                     'stock_name': stock[2]
                 })
 
@@ -180,6 +200,9 @@ def save_to_mysql(boards: list[dict], stocks: list[dict], board_type: str) -> No
             # 插入板块和股票数据
             db_instance.insert_boards(current_batch_id, boards, board_type, scrape_date)
             db_instance.insert_stocks(current_batch_id, stocks, scrape_date)
+
+            # 插入板块统计数据（每个板块的股票数量）
+            db_instance.insert_board_statistics(current_batch_id, board_type, stocks, scrape_date)
 
             # 更新批次状态
             db_instance.update_batch_status(
