@@ -26,8 +26,8 @@ pip3 install -r requirements.txt
 make -C socket release
 
 # 4. 配置数据库（可选，使用MySQL存储）
-cp .env.example .env
-vim .env  # 设置 DB_PASSWORD=your_password
+# 编辑 config.toml 设置数据库密码
+vim config.toml
 
 # 5. 运行爬虫（首次运行会自动创建数据库和表）
 python3 main.py -u 用户名 -p 密码 -s
@@ -37,6 +37,7 @@ python3 main.py -u 用户名 -p 密码 -s
 - ✅ 数据库不存在时会自动创建（无需手动初始化）
 - ✅ Socket代理已编译为release版本（优化性能）
 - ✅ 支持CSV和MySQL双模式存储
+- ✅ 数据库配置直接在config.toml中设置
 
 ## 快速开始
 
@@ -162,13 +163,12 @@ requests → CDN适配器 → 百度CDN(110.242.70.68) → 同花顺
 ├── v_new.js           # 反爬虫Cookie生成
 ├── origin.txt         # 设备指纹信息
 ├── cookies.json       # 登录Cookie缓存（自动生成）
-├── .env.example       # 环境变量模板
-├── config.toml        # 配置文件
+├── config.toml        # 配置文件（含数据库密码）
 ├── requirements.txt   # Python依赖包
 ├── CHANGELOG.md       # 更新日志
 ├── README.md          # 项目说明
 ├── FILE_STRUCTURE.md  # 文件结构说明
-└── socket/            # Socket代理（C语言，release版本）
+└── socket/            # Socket代理（C语言，独立维护）
     ├── thread_socket.c
     ├── driver.c
     ├── thread_socket.h

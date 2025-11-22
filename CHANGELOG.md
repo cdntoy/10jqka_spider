@@ -10,6 +10,8 @@
 
 ### 项目精简
 - 删除非核心文件：query_changes.py, MYSQL_GUIDE.md, TECHNICAL.md, tests/
+- 删除.gitmodules和.env.example（无用配置）
+- socket目录从git submodule改为独立维护
 - 更新README.md：移除已删除文件引用，改为SQL查询示例
 - 更新FILE_STRUCTURE.md：保持文档与实际文件一致
 - 聚焦核心功能：登录 → 爬取 → 去重 → MySQL/CSV

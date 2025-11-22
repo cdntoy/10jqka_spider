@@ -107,16 +107,11 @@
 **项目配置文件**
 - TOML格式配置
 - 包含:
-  - 数据库连接配置(host/port/user/database)
+  - 数据库连接配置(host/port/user/password/database)
   - 爬虫参数(线程数/超时/间隔)
   - 存储模式配置
   - CSV备份开关
-
-### .env.example
-**环境变量模板**
-- 敏感配置的模板文件
-- 用户需复制为.env并填写实际值
-- 主要配置: `DB_PASSWORD` (数据库密码)
+- 敏感信息(如数据库密码)直接在此文件配置
 
 ### requirements.txt
 **Python依赖清单**
@@ -176,6 +171,10 @@ Socket代理子项目,使用C语言实现高性能代理服务器
 - 多线程并发处理
 - 高性能(C语言实现)
 
+**维护说明**:
+- 独立维护的代码,不再链接外部仓库
+- 已从git submodule转为普通目录
+
 **编译**:
 ```bash
 make -C socket release  # 编译优化版本
@@ -214,8 +213,8 @@ main.py (主程序)
 
 ## 注意事项
 
-1. **环境配置**: 首次使用需配置 `.env` 文件(复制自 `.env.example`)
+1. **数据库配置**: 首次使用需在 `config.toml` 中设置数据库密码
 2. **依赖安装**: 运行前需 `pip install -r requirements.txt`
 3. **代理编译**: Socket代理需先编译 `make -C socket release`
 4. **数据库**: 首次运行会自动创建数据库和表,无需手动初始化
-5. **敏感信息**: cookies.json和.env包含敏感信息,不要提交到Git
+5. **敏感信息**: cookies.json包含登录信息,不要提交到Git
