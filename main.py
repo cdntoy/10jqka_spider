@@ -448,7 +448,7 @@ if '__main__' == __name__:
     parser.add_argument('-b', '--interval', type=int, default=1, help='请求间隔秒数 (默认: 1)', metavar='秒')
     parser.add_argument('-H', '--threads', type=int, default=16, help='并发线程数 (默认: 16)', metavar='数量')
     parser.add_argument('-t', '--timeout', type=int, default=10, help='请求超时秒数 (默认: 10)', metavar='秒')
-    parser.add_argument('--cdn', action='store_true', help='启用CDN代理模式（通过百度CDN轮换IP）')
+    parser.add_argument('-d', '--direct', action='store_true', help='本地直连模式（仅限测试，不使用CDN代理）')
     parser.add_argument('-v', '--version', action='version', version=f'%(prog)s v{VERSION}')
 
     args = parser.parse_args()
@@ -483,8 +483,12 @@ if '__main__' == __name__:
     log(f'并发连接限制: {max_concurrent}')
 
     # 配置网络适配器
-    if args.cdn:
-        # CDN代理模式：通过百度CDN轮换IP
+    if args.direct:
+        # 测试模式：本地直连
+        log('⚠️  本地直连模式（仅限测试）', 'WARN')
+        log('⚠️  生产环境必须使用CDN代理', 'WARN')
+    else:
+        # 默认模式：通过百度CDN代理轮换IP
         from cdn_adapter import CdnAdapter, CDN_SERVER
         adapter = CdnAdapter(
             pool_connections=64,
@@ -492,9 +496,6 @@ if '__main__' == __name__:
         )
         session.mount('https://', adapter)
         log(f'CDN转发: {CDN_SERVER}')
-    else:
-        # 默认模式：本地直连
-        log('网络模式: 本地直连')
 
     # 测试CDN是否可用
     try:

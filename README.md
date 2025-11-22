@@ -14,7 +14,7 @@
 
 ```bash
 pip install -r requirements.txt
-python3 main.py -u <用户名> -p <密码>
+python3 main.py -u <用户名> -p <密码> -d  # 使用-d参数本地直连
 ```
 
 ## 参数
@@ -26,8 +26,10 @@ python3 main.py -u <用户名> -p <密码>
 | `-H` | 线程数 | 16 |
 | `-b` | 请求间隔(秒) | 1 |
 | `-t` | 超时(秒) | 10 |
-| `--cdn` | 启用CDN代理模式（通过百度CDN轮换IP） | 关闭 |
+| `-d` | 本地直连模式（仅限测试） | 关闭 |
 | `-v` | 显示版本号 | - |
+
+**注意：** 默认使用百度CDN代理（180.101.81.x），但该IP段已被同花顺封禁。**生产环境建议使用`-d`参数进行本地直连**，或配置其他CDN服务。
 
 ## 定时任务配置
 
@@ -37,8 +39,8 @@ python3 main.py -u <用户名> -p <密码>
 # 编辑 root 用户的 crontab
 sudo crontab -e
 
-# 添加以下行（每天早上9点运行）
-0 9 * * * cd /path/to/10jqka_spider && python3 -u main.py -u ceshi0110 -p Qq830406 >> /var/log/10jqka_spider.log 2>&1
+# 添加以下行（每天早上9点运行，使用-d参数本地直连）
+0 9 * * * cd /path/to/10jqka_spider && python3 -u main.py -u ceshi0110 -p Qq830406 -d >> /var/log/10jqka_spider.log 2>&1
 ```
 
 ## 输出
@@ -55,19 +57,19 @@ result/20251121/
 
 ## 技术架构
 
-**默认模式（直连）：**
+**本地直连模式（`-d`参数，推荐）：**
 ```
 requests → 本地网络 → 同花顺
 ```
 
-**CDN模式（`--cdn`参数）：**
+**CDN代理模式（默认，但已被封禁）：**
 ```
 requests → CDN适配器 → 百度CDN(110.242.70.68) → 同花顺
 ```
 
 - 纯Python，无需编译
-- 默认本地直连，可选CDN代理轮换IP
-- CDN模式下负载均衡自动分配出口IP (180.101.81.x)
+- 默认CDN代理模式，但百度CDN IP段(180.101.81.x)已被同花顺封禁
+- **推荐使用`-d`参数本地直连**
 - 简洁请求头设计，避免反爬虫检测
 - 高斯分布随机延迟，模拟人工操作
 
