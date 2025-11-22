@@ -713,7 +713,21 @@ if '__main__' == __name__:
     parser = argparse.ArgumentParser(
         description=f'同花顺板块数据爬虫 v{VERSION}',
         formatter_class=argparse.RawDescriptionHelpFormatter,
-        epilog='示例: python3 main.py -u 用户名 -p 密码\n配置文件: config.toml'
+        epilog='''使用示例:
+  抓取全部板块:
+    python3 main.py -u 用户名 -p 密码 -s
+
+  只抓取概念板块:
+    python3 main.py -u 用户名 -p 密码 -s --boards 概念
+
+  只抓取行业板块:
+    python3 main.py -u 用户名 -p 密码 -s --boards 同花顺行业
+
+  抓取多个板块:
+    python3 main.py -u 用户名 -p 密码 -s --boards 概念 地域
+
+配置文件: config.toml
+'''
     )
     parser.add_argument('-u', '--user', type=str, default='', help='登录用户名', metavar='用户名')
     parser.add_argument('-p', '--password', type=str, default='', help='登录密码', metavar='密码')
@@ -724,6 +738,9 @@ if '__main__' == __name__:
     parser.add_argument('-P', '--proxy-port', type=int, help='Socket代理端口（覆盖配置文件）', metavar='端口')
     parser.add_argument('-d', '--direct', action='store_true', help='本地直连模式（仅限测试，不使用代理）')
     parser.add_argument('-c', '--config', type=str, default='config.toml', help='配置文件路径', metavar='路径')
+    parser.add_argument('--boards', type=str, nargs='+',
+                        choices=['同花顺行业', '概念', '地域'],
+                        help='指定要抓取的板块类型（可多选，覆盖配置文件）', metavar='板块')
     parser.add_argument('-v', '--version', action='version', version=f'%(prog)s v{VERSION}')
 
     args = parser.parse_args()
@@ -788,6 +805,9 @@ if '__main__' == __name__:
         config['socket_proxy']['enabled'] = False
     if args.proxy_port is not None:
         config['socket_proxy']['port'] = args.proxy_port
+    if args.boards is not None:
+        config['scraper']['enabled_boards'] = args.boards
+        log(f'命令行指定板块: {", ".join(args.boards)}')
 
     # 参数范围验证
     if config['scraper']['interval_seconds'] < 0:

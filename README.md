@@ -45,8 +45,17 @@ vim config.toml  # 修改数据库密码和启用的板块类型
 ## 使用
 
 ```bash
-# 推荐：使用Socket代理模式
+# 推荐：使用Socket代理模式，抓取全部板块
 python3 main.py -u 用户名 -p 密码 -s
+
+# 只抓取概念板块
+python3 main.py -u 用户名 -p 密码 -s --boards 概念
+
+# 只抓取同花顺行业板块
+python3 main.py -u 用户名 -p 密码 -s --boards 同花顺行业
+
+# 抓取多个板块（概念 + 地域）
+python3 main.py -u 用户名 -p 密码 -s --boards 概念 地域
 
 # 测试：本地直连（容易被限制，不推荐）
 python3 main.py -u 用户名 -p 密码 -d
@@ -60,12 +69,16 @@ python3 main.py -u 用户名 -p 密码 -d
 | `-p` | 同花顺密码 | 必填 |
 | `-s` | 启用Socket代理模式 | 关闭 |
 | `-d` | 本地直连模式 | 关闭 |
+| `--boards` | 指定抓取板块（可选：同花顺行业、概念、地域，可多选） | 配置文件 |
 | `-H` | 线程数 | 16 |
 | `-b` | 请求间隔（秒） | 1 |
 | `-t` | 超时时间（秒） | 10 |
 | `-P` | Socket代理端口 | 8080 |
 
-注意：`-s` 和 `-d` 不能同时使用，推荐使用Socket代理模式。
+注意：
+- `-s` 和 `-d` 不能同时使用，推荐使用Socket代理模式
+- `--boards` 参数会覆盖配置文件中的 `enabled_boards` 设置
+- 不指定 `--boards` 时，使用配置文件中的设置
 
 ## 配置文件
 
