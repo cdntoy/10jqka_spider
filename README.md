@@ -1,6 +1,15 @@
-# 同花顺板块数据爬虫 v1.7.7
+# 同花顺板块数据爬虫 v2.0.0
 
 自动爬取同花顺股票板块数据，支持同花顺行业、概念、地域三大分类，数据存储到MySQL或CSV文件。
+
+## 🎉 v2.0.0 重大更新
+
+- **三数据库架构**: 同花顺行业、概念、地域各用独立数据库，互不干扰
+- **全中文化**: 所有数据库名、表名、字段名全部使用中文
+- **可选抓取**: 支持只抓取需要的板块类型（配置文件或全抓）
+- **简化设计**: 从7张表精简到3张表（爬取记录 + 板块信息 + 成分股）
+- **性能追踪**: 自动记录每次抓取耗时
+- **不向后兼容**: 完全重构，需重新初始化数据库
 
 ## 主要功能
 
@@ -9,8 +18,9 @@
 - 通过Socket代理实现IP轮换，避免被封
 - 多线程并发爬取，速度快
 - 数据自动去重，保证质量
-- MySQL数据库存储，支持历史追踪
-- CSV文件备份，按日期归档
+- MySQL三数据库存储，按板块类型分离
+- CSV文件备份，按板块类型和日期归档
+- 可选抓取：只抓需要的板块类型
 
 ## 安装
 
@@ -25,11 +35,12 @@ pip3 install -r requirements.txt
 # 3. 编译Socket代理
 make -C socket release
 
-# 4. 配置数据库（可选）
-vim config.toml  # 修改数据库密码
-```
+# 4. 初始化数据库（v2.0.0新架构）
+mysql -u root -p < init_databases.sql
 
-首次运行会自动创建数据库和表，无需手动初始化。
+# 5. 配置
+vim config.toml  # 修改数据库密码和启用的板块类型
+```
 
 ## 使用
 
@@ -56,48 +67,83 @@ python3 main.py -u 用户名 -p 密码 -d
 
 注意：`-s` 和 `-d` 不能同时使用，推荐使用Socket代理模式。
 
+## 配置文件
+
+编辑 `config.toml` 选择要抓取的板块类型：
+
+```toml
+[scraper]
+# 可选值: "同花顺行业", "概念", "地域"
+# 只抓概念板块示例：
+enabled_boards = ["概念"]
+
+# 抓取全部（默认）：
+enabled_boards = ["同花顺行业", "概念", "地域"]
+```
+
 ## 数据查询
 
-### CSV文件
+### CSV文件（v2.0.0新结构）
 
-数据保存在 `result/日期/` 目录下，每次运行生成6个CSV文件：
+数据按板块类型分文件夹保存：
 
 ```
-result/20251123/
-├── 20251123090000_同花顺行业板块信息.csv
-├── 20251123090000_同花顺行业板块代码.csv
-├── 20251123090000_概念板块信息.csv
-├── 20251123090000_概念板块代码.csv
-├── 20251123090000_地域板块信息.csv
-└── 20251123090000_地域板块代码.csv
+result/
+├── 同花顺行业板块/
+│   └── 20251123/
+│       ├── 板块信息_20251123090000.csv
+│       └── 成分股_20251123090000.csv
+├── 概念板块/
+│   └── 20251123/
+│       ├── 板块信息_20251123090000.csv
+│       └── 成分股_20251123090000.csv
+└── 地域板块/
+    └── 20251123/
+        ├── 板块信息_20251123090000.csv
+        └── 成分股_20251123090000.csv
 ```
 
-### MySQL数据库
+### MySQL数据库（v2.0.0新架构）
 
-配置好`config.toml`后，数据会自动存储到MySQL。主要数据表：
+三个独立数据库，每个包含3张表：
 
-- `scrape_batches` - 每次爬取的批次记录
-- `board_snapshots` - 板块历史快照
-- `stock_board_memberships` - 股票-板块成员关系表
-- `board_statistics` - 板块统计（含股票数量）
-- `change_summary` - 变化统计汇总
-- `board_changes` - 板块变化明细
-- `stock_changes` - 股票变化明细
+**数据库**:
+- `同花顺行业板块`
+- `概念板块`
+- `地域板块`
+
+**表结构**（每个数据库相同）:
+- `爬取记录` - 批次管理，记录抓取时间、耗时、状态
+- `板块信息` - 板块基本信息（名称、链接、驱动事件、成分股数量）
+- `成分股` - 股票-板块成员关系（股票代码、名称、序号）
 
 常用查询示例：
 
 ```sql
--- 查看最新爬取的板块统计
-SELECT board_type, board_name, stock_count
-FROM board_statistics
-WHERE batch_id = (SELECT MAX(batch_id) FROM scrape_batches)
-ORDER BY stock_count DESC;
+-- 查看最新批次的概念板块统计
+USE `概念板块`;
+SELECT b.`板块名称`, COUNT(s.`股票代码`) as 股票数量
+FROM `板块信息` b
+JOIN `成分股` s ON s.`批次ID` = b.`批次ID` AND s.`板块名称` = b.`板块名称`
+WHERE b.`批次ID` = (SELECT MAX(`批次ID`) FROM `爬取记录`)
+GROUP BY b.`板块名称`
+ORDER BY 股票数量 DESC
+LIMIT 10;
 
--- 查看"人工智能"板块的历史数据
-SELECT scrape_date, total_stocks
-FROM board_snapshots
-WHERE board_name = '人工智能'
-ORDER BY scrape_date DESC;
+-- 查看爬取历史
+USE `同花顺行业板块`;
+SELECT `批次ID`, `抓取时间`, `板块总数`, `股票总数`, `爬取耗时秒数`, `执行状态`
+FROM `爬取记录`
+ORDER BY `抓取时间` DESC
+LIMIT 10;
+
+-- 查询"人工智能"板块的成分股
+USE `概念板块`;
+SELECT s.`股票代码`, s.`股票名称`, s.`原始序号`
+FROM `成分股` s
+WHERE s.`板块名称` = '人工智能'
+  AND s.`批次ID` = (SELECT MAX(`批次ID`) FROM `爬取记录`)
+ORDER BY s.`原始序号`;
 ```
 
 ## 定时任务
@@ -126,19 +172,20 @@ Socket代理会自动切换CDN节点IP，避免被封禁。每次请求间隔随
 
 ```
 10jqka_spider/
-├── main.py            # 主程序
-├── cookies.py         # 登录和Cookie管理
-├── encrypt.py         # 加密算法（RSA/AES）
-├── database.py        # 数据库操作
-├── socket_manager.py  # Socket代理管理
-├── v_new.js           # 反爬虫Cookie生成
-├── origin.txt         # 设备指纹
-├── config.toml        # 配置文件
-└── socket/            # Socket代理源码（C语言）
+├── main.py              # 主程序（v2.0.0完全重写）
+├── cookies.py           # 登录和Cookie管理
+├── encrypt.py           # 加密算法（RSA/AES）
+├── database.py          # 数据库操作（v2.0.0完全重写）
+├── socket_manager.py    # Socket代理管理
+├── v_new.js             # 反爬虫Cookie生成
+├── origin.txt           # 设备指纹
+├── config.toml          # 配置文件（v2.0.0新增enabled_boards）
+├── init_databases.sql   # 数据库初始化脚本（v2.0.0新增）
+└── socket/              # Socket代理源码（C语言）
     ├── thread_socket.c
     ├── driver.c
     ├── Makefile
-    └── thread_socket  # 编译后的可执行文件
+    └── thread_socket    # 编译后的可执行文件
 ```
 
 ## 依赖包
@@ -149,7 +196,40 @@ Socket代理会自动切换CDN节点IP，避免被封禁。每次请求间隔随
 - `pyexecjs` - 执行JavaScript
 - `pymysql` - MySQL数据库
 - `toml` - 配置文件解析
-- `tabulate` - 表格输出
+
+## v2.0.0 迁移指南
+
+**重要**: v2.0.0 不向后兼容，需要重新初始化数据库。
+
+### 从 v1.x 升级步骤：
+
+1. **备份旧数据**（如需保留）:
+   ```bash
+   mysqldump -u root -p 10jqka_bankuai > backup_v1.sql
+   ```
+
+2. **初始化新数据库**:
+   ```bash
+   mysql -u root -p < init_databases.sql
+   ```
+
+3. **更新配置文件**:
+   - 编辑 `config.toml`，添加 `enabled_boards` 配置
+   - 数据库连接保持不变（仍连接MySQL服务器，但程序会自动连接3个数据库）
+
+4. **首次运行**:
+   ```bash
+   python3 main.py -u 用户名 -p 密码 -s
+   ```
+
+### v2.0.0 主要变化：
+
+- ❌ 移除：7张表（scrape_batches, board_snapshots, stock_board_memberships等）
+- ✅ 新增：3个独立数据库，每个3张表
+- ❌ 移除：变化追踪功能（change_summary, board_changes, stock_changes）
+- ✅ 新增：可选抓取（enabled_boards配置）
+- ✅ 新增：CSV文件按板块类型分文件夹
+- ✅ 新增：自动记录抓取耗时
 
 ## 注意事项
 
