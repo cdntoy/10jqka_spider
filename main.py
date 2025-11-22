@@ -23,7 +23,7 @@ def signal_handler(signum, frame):
     """处理Ctrl+C信号，优雅退出"""
     print('\n\033[93m正在停止爬虫，请稍候...\033[0m')
     shutdown_event.set()
-    sys.exit(0)
+    # 不直接exit，让主线程自然退出以确保资源清理
 
 signal.signal(signal.SIGINT, signal_handler)
 signal.signal(signal.SIGTERM, signal_handler)
@@ -40,8 +40,8 @@ today_date = datetime.now().strftime("%Y%m%d")
 interval = 1  # 默认请求间隔1秒
 user = b''
 pwd = b''
-thread_count = 64  # 默认64线程
-VERSION = '1.6.0'
+thread_count = 16  # 默认16线程
+VERSION = '1.7.0'
 timeout = 10  # 默认超时10秒
 
 def log(msg: str, level: str = 'INFO') -> None:
@@ -136,6 +136,8 @@ def fetch(index: int, plate: str, max_retries: int = 20) -> None:
             url = f'https://q.10jqka.com.cn/thshy/index/field/199112/order/desc/page/{index}/ajax/1/'
         case 'dy':
             url = f'https://q.10jqka.com.cn/dy/index/field/199112/order/desc/page/{index}/ajax/1/'
+        case _:
+            raise ValueError(f"Unknown plate type: {plate}")
 
     # 获取板块信息（添加最大重试限制）
     for retry in range(max_retries):
@@ -175,7 +177,7 @@ def fetch(index: int, plate: str, max_retries: int = 20) -> None:
         name = link[0][1]
 
         with lock:
-            if RESULT.get(name) == None:
+            if RESULT.get(name) is None:
                 RESULT[name] = []
             else:
                 if len(RESULT[name]) != 4:
@@ -211,6 +213,9 @@ def fetch(index: int, plate: str, max_retries: int = 20) -> None:
 def fetch_code(name: str, prefix: str) -> list[list[str]]:
     global session, RESULT, total_count, cur_count, failed_items, lock, cookies_obj, code_name
 
+    if name not in RESULT or len(RESULT[name]) < 2:
+        print(f'[警告] {name} 数据结构不完整')
+        return []
     page_ids = page_id.findall(RESULT[name][1])
     if not page_ids:
         print(f'[警告] {name} 无法获取板块代码')
@@ -227,6 +232,8 @@ def fetch_code(name: str, prefix: str) -> list[list[str]]:
             url_prefix = 'q.10jqka.com.cn/thshy/detail/field/199112/order/desc/page'
         case 'dy':
             url_prefix = 'q.10jqka.com.cn/dy/detail/field/199112/order/desc/page'
+        case _:
+            raise ValueError(f"Unknown prefix type: {prefix}")
 
     session.cookies.set('v', cookies_obj.get_v())
     resp = session.get(
@@ -277,9 +284,11 @@ def fetch_code(name: str, prefix: str) -> list[list[str]]:
         tr = tr_pattern.findall(tbody[0])
         for td in tr:
             c_name = code_name.findall(td)
-            if len(c_name) == 0: continue
+            if len(c_name) < 2: continue
+            seq_results = seq_pattern.findall(td)
+            if not seq_results: continue
             __result = []
-            __result.append(seq_pattern.findall(td)[0])
+            __result.append(seq_results[0])
             __result.append(c_name[0])
             __result.append(c_name[1])
 
@@ -347,6 +356,7 @@ def check_cookies_valid() -> None:
             if cookies == dict():
                 print('Get cookies failed')
                 count += 1
+                continue
 
             with open(path_join(PATH, 'cookies.json'), 'w') as f:
                 f.write(dumps(cookies))
@@ -411,6 +421,8 @@ def fetch_pages(plate: str, url: str) -> None:
             name = '同花顺行业'
         case 'dy':
             name = '地域'
+        case _:
+            raise ValueError(f"Unknown plate type: {plate}")
 
     RESULT = dict()
     end_page = 1
@@ -533,3 +545,7 @@ if '__main__' == __name__:
         log('爬取任务完成')
     except Exception as e:
         log(f'爬取失败: {e}', 'ERROR')
+        raise
+    finally:
+        # 确保关闭session释放资源
+        session.close()
