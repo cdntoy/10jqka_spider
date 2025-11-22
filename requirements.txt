@@ -2,3 +2,7 @@ requests
 pycryptodome
 ddddocr
 pyexecjs
+pymysql
+python-dotenv
+toml
+tabulate

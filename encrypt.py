@@ -36,10 +36,16 @@ rsa_cipher = PKCS1_v1_5.new(RSA.import_key(pub_key))
 aes_cipher = AES.new(key, AES.MODE_ECB)
 
 def get_id() -> str:
+    """
+    生成设备指纹ID（RSA加密密钥 + AES加密设备信息）
+
+    Returns:
+        URL编码的设备指纹字符串
+    """
     enc = rsa_cipher.encrypt(key)
     with open(path_join(PATH, 'origin.txt'), 'rb') as f:
         device_info = f.read()
-    
+
     _1 = b64encode(enc)
     _2 = b64encode(aes_cipher.encrypt(pad(device_info, AES.block_size)))
 
@@ -65,11 +71,31 @@ def pkcs1_v1_5_pad(message: bytes, k: int) -> bytes:
     return b'\x02' + bytes(ps) + b'\x00' + message
 
 def rsa_enc(plain: bytes, key_size: int = 128) -> bytes:
+    """
+    使用RSA加密明文
+
+    Args:
+        plain: 待加密的明文字节
+        key_size: 密钥长度（字节），默认128字节（1024位）
+
+    Returns:
+        Base64编码的密文
+    """
     m = int.from_bytes(pkcs1_v1_5_pad(plain, key_size), byteorder = 'big')
     c = pow(m, e, n)
     return b64encode(c.to_bytes(key_size, byteorder = 'big'))
 
 def str_xor(src, dst) -> str:
+    """
+    字符串异或操作
+
+    Args:
+        src: 源字符串
+        dst: 密钥字符串
+
+    Returns:
+        异或后的字符串
+    """
     ret = ''
     for i in range(len(src)):
         j = i % len(dst)
@@ -78,6 +104,19 @@ def str_xor(src, dst) -> str:
     return ret
 
 def passwd_salt(dsk, ssv, dsv, crnd, passwd: bytes) -> bytes:
+    """
+    生成密码盐值加密
+
+    Args:
+        dsk: 动态密钥
+        ssv: 服务器盐值
+        dsv: 设备盐值
+        crnd: 随机数
+        passwd: 原始密码
+
+    Returns:
+        加盐加密后的密码
+    """
     key = str_xor(
         b64decode(ssv).decode('UTF-8'),
         sha256((crnd + dsk).encode('UTF-8')).hexdigest()

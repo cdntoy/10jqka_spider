@@ -22,13 +22,16 @@ class _10jqka_Cookies:
 
 
     def get_v(self) -> str:
+        """生成v参数（反爬虫签名）"""
         return self.js_ctx.call('get_v') # type: ignore
 
     def get_crnd(self):
+        """生成16位随机字符串（crnd参数）"""
         return ''.join(random.choices('0123456789abcdefghijklmnopqrstuvwxyz', k=8)) + ''.join(
             random.choices('0123456789abcdefghijklmnopqrstuvwxyz', k=8))
 
     def get_gs(self, crnd: str, uname: str) -> dict:
+        """获取加密所需的gs参数"""
         return self.session.post(
             url = 'https://upass.10jqka.com.cn/user/getGS',
             data = {
@@ -39,6 +42,7 @@ class _10jqka_Cookies:
         ).json()
 
     def generate(self, token: str) -> dict:
+        """生成hawkeye指纹token"""
         return self.session.post(
             url = 'https://hawkeye.10jqka.com.cn/v1/hawkeye/generate',
             data = 'pass_code=&user_id=null&source_type=web&collections=' +
@@ -56,6 +60,12 @@ class _10jqka_Cookies:
 
 
     def get_ticket(self):
+        """
+        获取滑块验证码ticket
+
+        Returns:
+            ticket字符串，用于登录验证
+        """
         resp = dict()
         captcha_resp = dict()
         phrase = ''
@@ -118,6 +128,12 @@ class _10jqka_Cookies:
         return signature, phrase, ticket
 
     def get_cookies(self) -> dict:
+        """
+        登录并获取完整的cookies
+
+        Returns:
+            cookies字典
+        """
         token = self.generate(get_id())
         pass_code = token['data']['pass_code']
         device_code = token['data']['device_code']

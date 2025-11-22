@@ -5,3 +5,16 @@ PID
 *.log
 venv/
 .claude/
+
+# 敏感配置文件（包含密码等敏感信息）
+.env
+config.toml
+cookies.json
+
+# Socket代理进程文件
+*.pid
+socket_proxy.pid
+
+# 测试数据
+test_*.csv
+test_*.json
