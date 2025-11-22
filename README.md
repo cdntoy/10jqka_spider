@@ -73,33 +73,26 @@ python3 main.py -u <用户名> -p <密码> -s -H 32 -b 2
 
 ## 数据查询
 
-使用 `query_changes.py` 查询和分析板块、股票的历史变化趋势：
+通过MySQL客户端或任何数据库工具查询历史数据：
 
-```bash
-# 查询概念板块最近7天的每日变化汇总
-python3 query_changes.py --type gn --days 7
+```sql
+-- 查询最新一批爬取的板块统计
+SELECT board_type, board_name, stock_count
+FROM board_statistics
+WHERE batch_id = (SELECT MAX(batch_id) FROM scrape_batches)
+ORDER BY stock_count DESC;
 
-# 查询"人工智能"板块的历史趋势和成分股变化
-python3 query_changes.py --board 人工智能
+-- 查询特定板块的历史快照
+SELECT scrape_date, total_boards, total_stocks, elapsed_seconds
+FROM board_snapshots
+WHERE board_type = 'gn' AND board_name = '人工智能'
+ORDER BY scrape_date DESC;
 
-# 查询最近新增的TOP 20热门股票
-python3 query_changes.py --hot-added --limit 20
-
-# 查询最近删除的热门股票
-python3 query_changes.py --hot-removed
-
-# 查询批次#5的详细信息
-python3 query_changes.py --batch 5
+-- 查看每日抓取批次记录
+SELECT batch_id, board_type, scrape_date, total_boards, total_stocks
+FROM scrape_batches
+ORDER BY scrape_date DESC;
 ```
-
-**查询功能：**
-- `--type {thshy,gn,dy}` - 查询指定板块类型的每日变化汇总
-- `--days N` - 查询最近N天的数据（配合--type使用），默认7天
-- `--board 板块名称` - 查询单个板块的历史趋势
-- `--hot-added` - 查询最近新增的热门股票
-- `--hot-removed` - 查询最近删除的热门股票
-- `--batch ID` - 查询指定批次的详细信息
-- `--limit N` - 显示数量限制，默认20
 
 ## 定时任务配置
 
@@ -157,8 +150,6 @@ requests → CDN适配器 → 百度CDN(110.242.70.68) → 同花顺
 - 简洁请求头设计，避免反爬虫检测
 - 高斯分布随机延迟，模拟人工操作
 
-详细技术说明请参考 [TECHNICAL.md](TECHNICAL.md)
-
 ## 项目结构
 
 ```
@@ -168,7 +159,6 @@ requests → CDN适配器 → 百度CDN(110.242.70.68) → 同花顺
 ├── encrypt.py         # RSA/AES加密
 ├── database.py        # MySQL数据库操作（支持自动建库建表）
 ├── socket_manager.py  # Socket代理管理器
-├── query_changes.py   # 数据变化查询工具
 ├── v_new.js           # 反爬虫Cookie生成
 ├── origin.txt         # 设备指纹信息
 ├── cookies.json       # 登录Cookie缓存（自动生成）
@@ -177,16 +167,13 @@ requests → CDN适配器 → 百度CDN(110.242.70.68) → 同花顺
 ├── requirements.txt   # Python依赖包
 ├── CHANGELOG.md       # 更新日志
 ├── README.md          # 项目说明
-├── MYSQL_GUIDE.md     # MySQL使用指南
-├── TECHNICAL.md       # 技术文档
-├── socket/            # Socket代理（C语言，release版本）
-│   ├── thread_socket.c
-│   ├── driver.c
-│   ├── thread_socket.h
-│   ├── Makefile
-│   └── thread_socket  # 编译后的二进制文件
-└── tests/             # 单元测试
-    └── test_main.py
+├── FILE_STRUCTURE.md  # 文件结构说明
+└── socket/            # Socket代理（C语言，release版本）
+    ├── thread_socket.c
+    ├── driver.c
+    ├── thread_socket.h
+    ├── Makefile
+    └── thread_socket  # 编译后的二进制文件
 ```
 
 ## 依赖

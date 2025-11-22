@@ -92,16 +92,6 @@
   - `stop()`: 停止代理
   - `_is_port_ready()`: 检查端口就绪
 
-### query_changes.py
-**数据变化查询工具**
-- 查询和分析板块/股票的历史变化
-- 主要功能:
-  - 查询每日变化汇总
-  - 查询单个板块历史趋势
-  - 查询热门新增/删除股票
-  - 查询指定批次详情
-- 命令行工具,独立运行
-- 使用方式: `python3 query_changes.py --type gn --days 7`
 
 ## JavaScript文件
 
@@ -163,20 +153,6 @@
 - 按版本号和日期组织
 - 帮助用户了解项目演进
 
-### MYSQL_GUIDE.md
-**MySQL使用指南**
-- MySQL数据库的使用说明
-- 表结构解释
-- 常用SQL查询示例
-- 数据分析方法
-
-### TECHNICAL.md
-**技术文档**
-- 详细的技术实现说明
-- 网络代理原理
-- 反爬虫策略
-- 性能优化建议
-
 ### FILE_STRUCTURE.md
 **文件结构说明(本文档)**
 - 项目所有文件的详细说明
@@ -205,14 +181,6 @@ Socket代理子项目,使用C语言实现高性能代理服务器
 make -C socket release  # 编译优化版本
 ```
 
-## 测试文件
-
-### tests/test_main.py
-**单元测试**
-- 使用pytest框架
-- 测试核心功能的正确性
-- 运行: `pytest tests/`
-
 ## 输出目录
 
 ### result/
@@ -235,9 +203,6 @@ main.py (主程序)
   ├─> socket_manager.py (代理管理)
   │     └─> socket/thread_socket (C代理程序)
   └─> config.toml (配置读取)
-
-query_changes.py (独立查询工具)
-  └─> database.py (数据读取)
 ```
 
 ## 文件修改建议
@@ -245,7 +210,7 @@ query_changes.py (独立查询工具)
 - **配置修改**: 编辑 `config.toml` 和 `.env`
 - **扩展功能**: 修改 `main.py` 和 `database.py`
 - **调试爬虫**: 查看 `main.py` 的日志输出
-- **分析数据**: 使用 `query_changes.py` 或直接查询MySQL
+- **分析数据**: 直接查询MySQL数据库
 
 ## 注意事项
 
