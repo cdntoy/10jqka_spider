@@ -71,24 +71,11 @@ session = Session()
 
 # 完整的Chrome浏览器请求头（按标准顺序排列）
 session.headers = {
-    'Connection': 'keep-alive',
-    'Cache-Control': 'max-age=0',
-    'Upgrade-Insecure-Requests': '1',
-    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/136.0.0.0 Safari/537.36',
-    'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7',
-    'Accept-Encoding': 'gzip, deflate, br',
-    'Accept-Language': 'zh-CN,zh;q=0.9,en;q=0.8,en-US;q=0.7',
-    'Sec-Fetch-Dest': 'document',
-    'Sec-Fetch-Mode': 'navigate',
-    'Sec-Fetch-Site': 'same-origin',
-    'Sec-Fetch-User': '?1',
-    'Sec-Ch-Ua': '"Chromium";v="136", "Google Chrome";v="136", "Not.A/Brand";v="99"',
-    'Sec-Ch-Ua-Mobile': '?0',
-    'Sec-Ch-Ua-Platform': '"Windows"',
+    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) '
+        'AppleWebKit/537.36 (KHTML, like Gecko) Chrome/136.0.0.0 Safari/537.36',
     'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8',
     'Origin': 'https://upass.10jqka.com.cn',
-    'Referer': 'https://upass.10jqka.com.cn/',
-    'DNT': '1',
+    'Referer': 'https://upass.10jqka.com.cn/'
 }
 cookies_obj = None
 
@@ -461,7 +448,7 @@ if '__main__' == __name__:
     parser.add_argument('-b', '--interval', type=int, default=1, help='请求间隔秒数 (默认: 1)', metavar='秒')
     parser.add_argument('-H', '--threads', type=int, default=16, help='并发线程数 (默认: 16)', metavar='数量')
     parser.add_argument('-t', '--timeout', type=int, default=10, help='请求超时秒数 (默认: 10)', metavar='秒')
-    parser.add_argument('-d', '--direct', action='store_true', help='本地直连模式（仅限测试，强制单线程）')
+    parser.add_argument('--cdn', action='store_true', help='启用CDN代理模式（通过百度CDN轮换IP）')
     parser.add_argument('-v', '--version', action='version', version=f'%(prog)s v{VERSION}')
 
     args = parser.parse_args()
@@ -488,12 +475,6 @@ if '__main__' == __name__:
 
     log(f'同花顺板块爬虫 v{VERSION}')
 
-    # 直连模式：强制单线程
-    if args.direct:
-        thread_count = 1
-        log('⚠️  直连模式（仅限测试）- 强制单线程', 'WARN')
-        log('⚠️  生产环境请勿使用直连模式', 'WARN')
-
     log(f'线程数: {thread_count}, 间隔: {interval}s, 超时: {timeout}s')
 
     # 初始化并发连接限制
@@ -502,11 +483,8 @@ if '__main__' == __name__:
     log(f'并发连接限制: {max_concurrent}')
 
     # 配置网络适配器
-    if args.direct:
-        # 直连模式：使用本地IP
-        log('网络模式: 本地直连')
-    else:
-        # 默认模式：通过CDN代理轮换IP
+    if args.cdn:
+        # CDN代理模式：通过百度CDN轮换IP
         from cdn_adapter import CdnAdapter, CDN_SERVER
         adapter = CdnAdapter(
             pool_connections=64,
@@ -514,6 +492,9 @@ if '__main__' == __name__:
         )
         session.mount('https://', adapter)
         log(f'CDN转发: {CDN_SERVER}')
+    else:
+        # 默认模式：本地直连
+        log('网络模式: 本地直连')
 
     # 测试CDN是否可用
     try:
