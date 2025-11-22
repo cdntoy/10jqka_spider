@@ -1,4 +1,4 @@
-VERSION = 1.7.5
+VERSION = 1.7.6
 CC = gcc
 CFLAGS = -m64 -O3 -Wall -lpthread -fPIE -fstack-protector -Wno-incompatible-pointer-types
 CFLAGS_RELEASE = -m64 -O3 -Wall -lpthread -fPIE -s -DNDEBUG -Wno-incompatible-pointer-types

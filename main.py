@@ -55,7 +55,7 @@ signal.signal(signal.SIGINT, signal_handler)
 signal.signal(signal.SIGTERM, signal_handler)
 
 # 常量定义
-VERSION = '1.7.5'
+VERSION = '1.7.6'
 MAX_PAGE_RETRIES = 20  # 页面获取最大重试次数
 MAX_CODE_RETRIES = 10  # 股票代码获取最大重试次数
 MAX_LOGIN_ATTEMPTS = 6  # 登录最大尝试次数
@@ -123,6 +123,19 @@ seq_pattern = compile(r'<td>([0-9]+?)</td>[\w\W]+?_blank')
 code_name = compile(r'<td>.+?_blank">(.+?)</a>')
 ths_pattern = compile(r'<td>[0-9]+?</td>[\w\W]+?href="(.+?)".+?>(.+?)</a>')
 session = Session()
+
+# 配置连接池大小以匹配并发需求
+adapter = HTTPAdapter(
+    pool_connections=64,  # 支持64个不同host的连接池
+    pool_maxsize=64,      # 每个池最多64个连接
+    max_retries=Retry(
+        total=3,
+        backoff_factor=0.3,
+        status_forcelist=[500, 502, 503, 504]
+    )
+)
+session.mount('http://', adapter)
+session.mount('https://', adapter)
 
 # 完整的Chrome浏览器请求头（按标准顺序排列）
 session.headers = {

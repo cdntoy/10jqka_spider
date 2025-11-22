@@ -17,7 +17,7 @@ void signal_terminate(const int sign)
 
 void usage(const char *argv, const int ret)
 {
-    printf("Socket Proxy v1.7.5 - High Performance Proxy Server\n");
+    printf("Socket Proxy v1.7.6 - High Performance Proxy Server\n");
     printf("Usage of %s:\n"
         "\t-p\t<PORT>\n"
             "\t\tSet PORT while running\n"
