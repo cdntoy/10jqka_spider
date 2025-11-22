@@ -168,22 +168,25 @@ requests → CDN适配器 → 百度CDN(110.242.70.68) → 同花顺
 ├── encrypt.py         # RSA/AES加密
 ├── database.py        # MySQL数据库操作（支持自动建库建表）
 ├── socket_manager.py  # Socket代理管理器
-├── cdn_adapter.py     # CDN转发适配器
 ├── query_changes.py   # 数据变化查询工具
-├── check_data.py      # 数据检查工具
-├── init_db_simple.py  # 数据库初始化脚本
 ├── v_new.js           # 反爬虫Cookie生成
 ├── origin.txt         # 设备指纹信息
-├── cookies.json       # 登录Cookie缓存
+├── cookies.json       # 登录Cookie缓存（自动生成）
 ├── .env.example       # 环境变量模板
 ├── config.toml        # 配置文件
 ├── requirements.txt   # Python依赖包
+├── CHANGELOG.md       # 更新日志
+├── README.md          # 项目说明
+├── MYSQL_GUIDE.md     # MySQL使用指南
+├── TECHNICAL.md       # 技术文档
 ├── socket/            # Socket代理（C语言，release版本）
 │   ├── thread_socket.c
 │   ├── driver.c
+│   ├── thread_socket.h
 │   ├── Makefile
 │   └── thread_socket  # 编译后的二进制文件
 └── tests/             # 单元测试
+    └── test_main.py
 ```
 
 ## 依赖
