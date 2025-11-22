@@ -41,7 +41,7 @@ interval = 1  # 默认请求间隔1秒
 user = b''
 pwd = b''
 thread_count = 16  # 默认16线程
-VERSION = '1.7.0'
+VERSION = '1.7.1'
 timeout = 10  # 默认超时10秒
 
 def log(msg: str, level: str = 'INFO') -> None:
@@ -141,6 +141,8 @@ def fetch(index: int, plate: str, max_retries: int = 20) -> None:
 
     # 获取板块信息（添加最大重试限制）
     for retry in range(max_retries):
+        if shutdown_event.is_set():
+            return
         with lock:
             session.cookies.set('v', cookies_obj.get_v())
         try:
@@ -260,6 +262,8 @@ def fetch_code(name: str, prefix: str) -> list[list[str]]:
 
         # 添加最大重试限制
         for code_retry in range(10):
+            if shutdown_event.is_set():
+                return []
             session.cookies.set('v', cookies_obj.get_v())
             resp = session.get(
                 url = f'https://{url_prefix}/{page}/ajax/1/code/{code}/',
@@ -333,6 +337,8 @@ def check_cookies_valid() -> None:
 
     count = 0
     while True:
+        if shutdown_event.is_set():
+            return
         session.cookies.set('v', cookies_obj.get_v())
         resp = session.get(
             url = 'https://q.10jqka.com.cn/gn/index/field/addtime/order/desc/page/30/ajax/1/',
@@ -460,6 +466,8 @@ if '__main__' == __name__:
     parser.add_argument('-b', '--interval', type=int, default=1, help='请求间隔秒数 (默认: 1)', metavar='秒')
     parser.add_argument('-H', '--threads', type=int, default=16, help='并发线程数 (默认: 16)', metavar='数量')
     parser.add_argument('-t', '--timeout', type=int, default=10, help='请求超时秒数 (默认: 10)', metavar='秒')
+    parser.add_argument('-s', '--socket', action='store_true', help='Socket代理模式（使用本地socket代理）')
+    parser.add_argument('-P', '--proxy-port', type=int, default=8080, help='Socket代理端口 (默认: 8080)', metavar='端口')
     parser.add_argument('-d', '--direct', action='store_true', help='本地直连模式（仅限测试，不使用CDN代理）')
     parser.add_argument('-v', '--version', action='version', version=f'%(prog)s v{VERSION}')
 
@@ -478,6 +486,12 @@ if '__main__' == __name__:
     if args.timeout < 1:
         print('错误: 超时时间必须大于0')
         sys.exit(1)
+    if args.socket and args.direct:
+        print('错误: -s (socket代理) 和 -d (直连) 不能同时使用')
+        sys.exit(1)
+    if args.proxy_port < 1 or args.proxy_port > 65535:
+        print('错误: 代理端口必须在1-65535之间')
+        sys.exit(1)
 
     user = args.user.encode('UTF-8')
     pwd = args.password.encode('UTF-8')
@@ -495,7 +509,15 @@ if '__main__' == __name__:
     log(f'并发连接限制: {max_concurrent}')
 
     # 配置网络适配器
-    if args.direct:
+    if args.socket:
+        # Socket代理模式：使用本地socket代理
+        proxy_url = f'http://127.0.0.1:{args.proxy_port}'
+        session.proxies = {
+            'http': proxy_url,
+            'https': proxy_url
+        }
+        log(f'Socket代理模式: 127.0.0.1:{args.proxy_port}')
+    elif args.direct:
         # 测试模式：本地直连
         log('⚠️  本地直连模式（仅限测试）', 'WARN')
         log('⚠️  生产环境必须使用CDN代理', 'WARN')
